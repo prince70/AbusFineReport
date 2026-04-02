@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - DB_TYPE=sqlite
+      - SECRET_KEY=production-query-secret-key-2024
+    volumes:
+      - ./production.db:/app/production.db
+    restart: unless-stopped

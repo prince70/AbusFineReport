@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.git/
+.gitignore
+README.md
+.env
+.vscode/
+.idea/
+.venv/
+venv/
+
+# Docker image artifacts
+*.tar
+*.tar.gz
+
+# Python caches
+**/__pycache__/
