@@ -1,7 +1,7 @@
 param(
     [string]$Service = "web",
     [int]$Port = 8001,
-    [switch]$Build
+    [switch]$NoBuild
 )
 
 Set-StrictMode -Version Latest
@@ -45,9 +45,15 @@ try {
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $projectRoot
 try {
-    Write-Step "启动容器服务"
+    $shouldBuild = -not $NoBuild
+    if ($shouldBuild) {
+        Write-Step "启动容器服务（自动重新构建镜像）"
+    } else {
+        Write-Step "启动容器服务（跳过重新构建）"
+    }
+
     if ($composeSubCommand -eq "compose") {
-        if ($Build) {
+        if ($shouldBuild) {
             docker compose up -d --build $Service
         } else {
             docker compose up -d $Service
@@ -55,7 +61,7 @@ try {
         Write-Step "查看运行状态"
         docker compose ps
     } else {
-        if ($Build) {
+        if ($shouldBuild) {
             docker-compose up -d --build $Service
         } else {
             docker-compose up -d $Service
@@ -71,7 +77,11 @@ try {
         Write-Info "探活成功: $probeUrl -> $($response.StatusCode)"
     } catch {
         Write-WarnText "探活失败: $probeUrl"
-        Write-WarnText "可执行以下命令查看日志：docker compose logs --tail=120 $Service"
+        if ($composeSubCommand -eq "compose") {
+            Write-WarnText "可执行以下命令查看日志：docker compose logs --tail=120 $Service"
+        } else {
+            Write-WarnText "可执行以下命令查看日志：docker-compose logs --tail=120 $Service"
+        }
     }
 
     Write-Host ""
