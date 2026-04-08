@@ -77,6 +77,13 @@
       <div class="sheet-summary">
         <div>总记录数：<strong>{{ totalCount }}</strong></div>
         <div>当前展示：<strong>{{ tableData.length }}</strong></div>
+        <div>
+          全部统计：
+          订单数量 <strong>{{ overallSummary.订单数量 }}</strong>，
+          毛重 <strong>{{ overallSummary.毛重 }}</strong>，
+          净重 <strong>{{ overallSummary.净重 }}</strong>，
+          盆数 <strong>{{ overallSummary.盆数 }}</strong>
+        </div>
         <div>来源：SQL Server / dbo.昨日打磨数据_外协</div>
       </div>
 
@@ -129,8 +136,23 @@ export default {
         { prop: '订单整货期', label: '订单落货期', width: 110 },
         { prop: '责任车间', label: '责任车间', width: 110 },
         { prop: '毛重', label: '毛重', width: 90, align: 'right' },
-        { prop: '净重', label: '净重', width: 90, align: 'right' }
+        { prop: '净重', label: '净重', width: 90, align: 'right' },
+        { prop: '盆数', label: '盆数', width: 100, align: 'right' }
       ]
+    },
+    overallSummary() {
+      const formatNum = (value) => {
+        if (!Number.isFinite(value)) return '0'
+        if (Math.abs(value - Math.round(value)) < 1e-9) return String(Math.round(value))
+        return value.toFixed(2)
+      }
+      const sum = prop => this.tableData.reduce((acc, row) => acc + (Number(row[prop]) || 0), 0)
+      return {
+        订单数量: formatNum(sum('订单数量')),
+        毛重: formatNum(sum('毛重')),
+        净重: formatNum(sum('净重')),
+        盆数: formatNum(sum('盆数'))
+      }
     }
   },
   methods: {
@@ -142,6 +164,12 @@ export default {
       if (prop === '毛重' && (value === null || value === undefined || String(value).trim() === '')) {
         const fallbackWeight = row && (row.净重 !== null && row.净重 !== undefined && String(row.净重).trim() !== '') ? row.净重 : 0
         return String(fallbackWeight)
+      }
+      if (prop === '盆数') {
+        const num = Number(value)
+        if (!Number.isFinite(num)) return '0'
+        if (Math.abs(num - Math.round(num)) < 1e-9) return String(Math.round(num))
+        return num.toFixed(2)
       }
       if (value === null || value === undefined) return ''
       return String(value)
@@ -245,7 +273,7 @@ export default {
           merges.push({ s: { r: 3, c: 3 }, e: { r: 3, c: colCount - 1 } })
         }
 
-        const mergeTargetProps = ['备注', '毛重', '净重']
+        const mergeTargetProps = ['备注', '毛重', '净重', '盆数']
         const headerOffset = 5
         const getSpecKey = row => (row.规格型号分组 || row.规格型号 || '').toString()
 
@@ -311,7 +339,7 @@ export default {
       }
     },
     objectSpanMethod({ row, columnIndex, rowIndex }) {
-      const mergeColumns = ['备注', '毛重', '净重']
+      const mergeColumns = ['备注', '毛重', '净重', '盆数']
       if (columnIndex < 1) return
 
       const colIndex = columnIndex - 1

@@ -1,7 +1,8 @@
 param(
     [string]$Service = "web",
     [int]$Port = 8001,
-    [switch]$NoBuild
+    [switch]$NoBuild,
+    [switch]$SkipFrontendBuild
 )
 
 Set-StrictMode -Version Latest
@@ -45,6 +46,20 @@ try {
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $projectRoot
 try {
+    if (-not $SkipFrontendBuild) {
+        Write-Step "构建前端静态资源"
+        $packageJsonPath = Join-Path $projectRoot "package.json"
+        if (-not (Test-Path $packageJsonPath)) {
+            throw "未找到 package.json，无法自动构建前端。"
+        }
+        if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+            throw "未检测到 npm 命令，请先安装 Node.js，或使用 -SkipFrontendBuild 跳过前端构建。"
+        }
+        npm run build
+    } else {
+        Write-Step "跳过前端构建"
+    }
+
     $shouldBuild = -not $NoBuild
     if ($shouldBuild) {
         Write-Step "启动容器服务（自动重新构建镜像）"
