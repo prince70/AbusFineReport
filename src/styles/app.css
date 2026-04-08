@@ -1,0 +1,437 @@
+:root {
+  --brand: #1890ff;
+  --brand-dark: #096dd9;
+  --accent: #36b37e;
+  --danger: #f56c6c;
+  --bg: #f0f2f5;
+  --panel: #ffffff;
+  --text-main: #303133;
+  --text-sub: #606266;
+  --border: #dcdfe6;
+  --sidebar-grad: linear-gradient(180deg, #001528 0%, #001E38 50%, #002B4E 100%);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+  color: var(--text-main);
+  background: var(--bg);
+}
+
+.app-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 15% 20%, #1890ff33 0%, transparent 30%),
+              radial-gradient(circle at 80% 70%, #096dd933 0%, transparent 35%),
+              linear-gradient(130deg, #001528 0%, #001E38 55%, #002B4E 100%);
+  padding: 20px;
+}
+
+.login-card {
+  width: 420px;
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 16px 40px rgba(8, 42, 80, 0.32);
+  overflow: hidden;
+}
+
+.login-head {
+  background: linear-gradient(90deg, #096dd9 0%, #1890ff 100%);
+  color: #fff;
+  padding: 22px 26px;
+}
+
+.login-head h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.login-head p {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.login-body {
+  background: #ffffff;
+  padding: 24px;
+}
+
+.login-hint {
+  margin-top: 10px;
+  color: #8a9199;
+  font-size: 12px;
+  text-align: center;
+}
+
+.layout {
+  min-height: 100vh;
+  display: flex;
+}
+
+.sidebar {
+  width: 228px;
+  background: var(--sidebar-grad);
+  color: #fff;
+  box-shadow: 3px 0 12px rgba(16, 43, 78, 0.2);
+}
+
+.logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px;
+}
+
+.brand-logo-lg {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 3px;
+}
+
+.sidebar .el-menu {
+  border-right: none;
+  background: transparent;
+}
+
+.sidebar .el-menu-item,
+.sidebar .el-submenu__title {
+  color: rgba(255, 255, 255, 0.88);
+  height: 50px;
+  line-height: 50px;
+}
+
+.sidebar .el-menu-item:hover,
+.sidebar .el-submenu__title:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.sidebar .el-menu-item.is-active {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar {
+  height: 64px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+}
+
+.topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+.topbar-title img {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  object-fit: contain;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.login-brand h1 {
+  margin-bottom: 0;
+}
+
+.content {
+  padding: 18px;
+}
+
+.breadcrumbs {
+  margin-bottom: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.card,
+.el-card {
+  border-radius: 8px;
+  border-color: var(--border);
+  margin-bottom: 14px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.stat-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-box::after {
+  content: "";
+  position: absolute;
+  right: -20px;
+  top: -20px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.16), rgba(24, 144, 255, 0));
+}
+
+.stat-label {
+  color: var(--text-sub);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  color: var(--brand-dark);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f5f7fa;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.table-head .title { font-weight: 600; }
+
+.table-head .meta {
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.table-head .meta strong { color: var(--brand); }
+
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.el-table th {
+  background: var(--brand) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.el-pagination.is-background .el-pager li:not(.disabled).active {
+  background: var(--brand);
+}
+
+.sheet-title-block {
+  text-align: center;
+  padding: 8px 0 6px;
+}
+
+.sheet-company {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #1f1f1f;
+}
+
+.sheet-title {
+  margin-top: 6px;
+  font-size: 16px;
+  letter-spacing: 4px;
+  color: #333;
+}
+
+.sheet-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  justify-content: center;
+  padding: 8px 12px 14px;
+  color: #606266;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sheet-doc-head {
+  border: 1px solid #333;
+  margin-top: 8px;
+}
+
+.sheet-doc-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  border-top: 1px solid #333;
+  min-height: 38px;
+  align-items: center;
+  font-size: 14px;
+  color: #222;
+}
+
+.sheet-doc-row:first-child {
+  border-top: none;
+}
+
+.sheet-doc-cell {
+  border-left: 1px solid #333;
+  padding: 6px 10px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.sheet-doc-row .sheet-doc-cell:first-child {
+  border-left: none;
+}
+
+.sheet-footer-note {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 14px;
+  border: 1px solid #333;
+  border-bottom: none;
+  font-size: 14px;
+  color: #222;
+}
+
+.sheet-footer-note div {
+  min-height: 38px;
+  padding: 8px 10px;
+  border-right: 1px solid #333;
+  border-bottom: 1px solid #333;
+  display: flex;
+  align-items: center;
+}
+
+.sheet-footer-note div:last-child {
+  border-right: none;
+}
+
+.sheet-table-wrap {
+  overflow: auto;
+  padding-top: 12px;
+}
+
+.sheet-table-wrap .el-table th {
+  background: #fff !important;
+  color: #303133 !important;
+}
+
+.sheet-table-wrap .el-table td,
+.sheet-table-wrap .el-table th {
+  border-color: #333 !important;
+}
+
+.sheet-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: #606266;
+  font-size: 13px;
+}
+
+.sheet-summary strong {
+  color: var(--brand-dark);
+}
+
+.sheet-signatures {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+  padding: 6px 2px 2px;
+  color: #303133;
+  font-size: 13px;
+}
+
+.numeric-cell {
+  display: inline-block;
+  width: 100%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.global-loading-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  color: #409eff;
+  font-size: 14px;
+  gap: 10px;
+}
+
+.global-loading-mask i {
+  font-size: 34px;
+}
+
+@media (max-width: 1200px) {
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 960px) {
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .topbar { padding: 0 12px; }
+  .content { padding: 10px; }
+}

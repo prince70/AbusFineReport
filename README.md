@@ -1,69 +1,98 @@
 # 装嵌生产进度管理平台
 
-完整的生产进度查询与权限管理系统，包含登录、菜单导航、用户管理、角色权限管理等功能。
+当前项目采用真正的 Vue SFC + Vite 构建，以及 Python 后端服务分层结构。
 
-## 功能特性
+## 核心能力
 
-- ✅ 用户登录/登出
-- ✅ 响应式菜单导航
-- ✅ 装嵌生产进度查询
-- ✅ 数据导出 Excel
-- ✅ 用户管理（CRUD）
-- ✅ 角色管理（CRUD）
-- ✅ 权限控制（按钮级权限）
-- ✅ 仪表板统计
-- ✅ Docker 部署
-
-## 快速开始
-
-### 方式一：Docker 部署
-
-```bash
-# 构建并启动
-docker-compose up -d --build
-
-# 查看日志
-docker-compose logs -f
-
-# 停止服务
-docker-compose down
-```
-
-访问：http://localhost:5000
-
-### 方式二：本地运行
-
-```bash
-# 安装依赖
-pip install -r requirements.txt
-
-# 启动服务
-python app.py
-```
-
-访问：http://localhost:5000
-
-## 默认账号
-
-- **管理员**：admin / admin123
-- **普通用户**：user / user123
+- 登录与会话管理
+- 动态菜单与权限控制
+- 装嵌进度查询（完成状态多选）
+- 装嵌进度后端 Excel 导出
+- 外协清单查询、导出、打印
+- 用户管理与角色管理
 
 ## 技术栈
 
-- **前端**：Vue 2 + Element UI
-- **后端**：Flask + SQLite
-- **部署**：Docker
+- 前端：Vue 2 SFC + Vue Router + Element UI + Vite
+- 后端：Flask + SQLite + SQL Server(pyodbc)
+- 导出：openpyxl / xlsx-js-style
 
-## 项目结构
+## 目录结构
 
-```
+```text
 production-query/
-├── app.py                 # 后端 Flask 应用
-├── index.html            # 前端主页面
-├── requirements.txt      # Python 依赖
-├── Dockerfile          # Docker 镜像配置
-├── docker-compose.yml # Docker Compose 配置
-├── production.db     # SQLite 数据库（自动生成）
-└── src/
-    └── assemblyProductionProgress.vue  # 参考组件
+├── run.py                       # 后端启动入口
+├── index.html                   # Vite 入口模板
+├── package.json
+├── vite.config.js
+├── requirements.txt
+├── backend/
+│   ├── __init__.py
+│   ├── app_main.py              # Flask 应用与路由入口
+│   └── services/
+│       ├── __init__.py
+│       ├── assembly_service.py
+│       └── checklist_service.py
+├── src/
+│   ├── App.vue
+│   ├── main.js
+│   ├── components/
+│   │   └── AppLayout.vue
+│   ├── pages/
+│   │   ├── LoginPage.vue
+│   │   ├── DashboardPage.vue
+│   │   ├── AssemblyProgressPage.vue
+│   │   ├── ChecklistPage.vue
+│   │   ├── UserManagementPage.vue
+│   │   ├── RoleManagementPage.vue
+│   │   └── ForbiddenPage.vue
+│   ├── router/
+│   │   └── index.js
+│   ├── services/
+│   │   └── auth.js
+│   └── styles/
+│       └── app.css
+└── assets/
+	├── logo.ico
+	└── fonts/
 ```
+
+## 本地开发
+
+1. 安装前端依赖
+
+```bash
+npm install
+```
+
+2. 安装后端依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+3. 启动后端（5000）
+
+```bash
+python run.py
+```
+
+4. 启动前端开发服务（5173）
+
+```bash
+npm run dev
+```
+
+## 生产构建
+
+```bash
+npm run build
+python run.py
+```
+
+构建产物输出到 `frontend-dist/`，由 Flask 在 `/static/*` 下托管。
+
+## 默认账号
+
+- 管理员：admin / admin123
+- 普通用户：user / user123
