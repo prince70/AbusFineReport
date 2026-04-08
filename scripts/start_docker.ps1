@@ -1,6 +1,6 @@
 param(
     [string]$Service = "web",
-    [int]$Port = 5000,
+    [int]$Port = 8001,
     [switch]$Build
 )
 

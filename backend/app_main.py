@@ -16,7 +16,7 @@ from backend.services.assembly_service import (
 )
 from backend.services.checklist_service import query_checklist_data
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get('SECRET_KEY', 'production-query-secret-key-2024')
 app.config['JSON_AS_ASCII'] = False
 

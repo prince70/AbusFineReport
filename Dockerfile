@@ -15,6 +15,6 @@ RUN pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY . .
 
-EXPOSE 5000
+EXPOSE 8001
 
 CMD ["python", "run.py"]

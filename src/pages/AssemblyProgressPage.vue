@@ -53,6 +53,12 @@
         <el-table-column prop="进度状态" label="进度状态" width="100" align="center"><template slot-scope="scope"><el-tag :type="getStatusType(scope.row.进度状态)" size="small">{{ scope.row.进度状态 }}</el-tag></template></el-table-column>
         <el-table-column prop="备注" label="备注" min-width="180" />
       </el-table>
+      <div class="overall-summary-row">
+        <span class="label">全部数据合计：</span>
+        <span>订单数量 <strong>{{ overallSummary.订单数量.toLocaleString() }}</strong></span>
+        <span>完成数量 <strong>{{ overallSummary.完成数量.toLocaleString() }}</strong></span>
+        <span>未完成数量 <strong>{{ overallSummary.未完成数量.toLocaleString() }}</strong></span>
+      </div>
       <div class="pagination-wrap">
         <el-pagination @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="currentPage" :page-size="pageSize" :page-sizes="[50,100,200,2000,5000]" layout="total, sizes, prev, pager, next, jumper" :total="tableData.length" background />
       </div>
@@ -86,6 +92,13 @@ export default {
     },
     totalPages() {
       return this.tableData.length ? Math.ceil(this.tableData.length / this.pageSize) : 1
+    },
+    overallSummary() {
+      return {
+        订单数量: this.sumField(this.tableData, '订单数量'),
+        完成数量: this.sumField(this.tableData, '完成数量'),
+        未完成数量: this.sumField(this.tableData, '未完成数量')
+      }
     }
   },
   mounted() {
@@ -180,6 +193,9 @@ export default {
       const day = String(d.getDate()).padStart(2, '0')
       return `${y}-${m}-${day}`
     },
+    sumField(rows, field) {
+      return rows.reduce((acc, row) => acc + (Number(row[field]) || 0), 0)
+    },
     getSummaries({ columns, data }) {
       const sums = []
       columns.forEach((column, index) => {
@@ -188,7 +204,7 @@ export default {
           return
         }
         if (['订单数量', '完成数量', '未完成数量'].includes(column.property)) {
-          sums[index] = data.reduce((acc, row) => acc + (Number(row[column.property]) || 0), 0).toLocaleString()
+          sums[index] = this.sumField(data, column.property).toLocaleString()
         } else {
           sums[index] = ''
         }
