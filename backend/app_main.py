@@ -59,6 +59,52 @@ def get_sqlserver_connection():
     )
     return pyodbc.connect(connection_string, timeout=10)
 
+
+def get_menu_paths_for_permission_codes(permission_codes):
+    paths = {'/dashboard'}
+    permission_to_paths = {
+        'assembly:query': ['/assembly'],
+        'checklist:query': ['/list'],
+        'user:view': ['/system/users'],
+        'role:view': ['/system/roles'],
+    }
+
+    for code in permission_codes or []:
+        for path in permission_to_paths.get(code, []):
+            paths.add(path)
+
+    return paths
+
+
+def get_menu_ids_for_paths(cursor, menu_paths):
+    cursor.execute('SELECT id, path, parent_id FROM menus')
+    menus = cursor.fetchall()
+    menus_by_path = {row[1]: {'id': row[0], 'parent_id': row[2]} for row in menus}
+    menus_by_id = {row[0]: {'id': row[0], 'parent_id': row[2]} for row in menus}
+
+    menu_ids = set()
+    for path in menu_paths or []:
+        current = menus_by_path.get(path)
+        while current:
+            menu_ids.add(current['id'])
+            parent_id = current['parent_id']
+            current = menus_by_id.get(parent_id)
+
+    return menu_ids
+
+
+def sync_role_menus_from_permissions(cursor, role_id):
+    cursor.execute('''SELECT DISTINCT p.code FROM permissions p
+                     JOIN role_permissions rp ON p.id = rp.permission_id
+                     WHERE rp.role_id = ?''', (role_id,))
+    permission_codes = [row[0] for row in cursor.fetchall()]
+    menu_paths = get_menu_paths_for_permission_codes(permission_codes)
+    menu_ids = get_menu_ids_for_paths(cursor, menu_paths)
+
+    cursor.execute('DELETE FROM role_menus WHERE role_id = ?', (role_id,))
+    for menu_id in menu_ids:
+        cursor.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (role_id, menu_id))
+
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
@@ -200,23 +246,9 @@ def init_db():
     c.execute('INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)', (1, checklist_perm_id))
     c.execute('INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)', (2, checklist_perm_id))
 
-    c.execute('SELECT COUNT(*) FROM role_menus')
-    if c.fetchone()[0] == 0:
-        c.execute('SELECT id, path FROM menus')
-        menu_map = {row[1]: row[0] for row in c.fetchall()}
-
-        admin_menu_paths = ['/dashboard', '/assembly', '/system', '/system/users', '/system/roles']
-        user_menu_paths = ['/dashboard', '/assembly']
-
-        for menu_path in admin_menu_paths:
-            menu_id = menu_map.get(menu_path)
-            if menu_id:
-                c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (1, menu_id))
-
-        for menu_path in user_menu_paths:
-            menu_id = menu_map.get(menu_path)
-            if menu_id:
-                c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (2, menu_id))
+    c.execute('SELECT id FROM roles')
+    for row in c.fetchall():
+        sync_role_menus_from_permissions(c, row[0])
 
     # Ensure the checklist/report menu exists (外协加工清单 -> /list)
     c.execute("SELECT id FROM menus WHERE path = '/list'")
@@ -230,6 +262,10 @@ def init_db():
         # grant menu to admin and normal user roles
         c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (1, new_menu_id))
         c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (2, new_menu_id))
+
+    c.execute('SELECT id FROM roles')
+    for row in c.fetchall():
+        sync_role_menus_from_permissions(c, row[0])
     
     c.execute('SELECT COUNT(*) FROM user_roles')
     if c.fetchone()[0] == 0:
@@ -543,6 +579,8 @@ def create_role():
         
         for perm_id in permissions:
             c.execute('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)', (role_id, perm_id))
+
+        sync_role_menus_from_permissions(c, role_id)
         
         conn.commit()
         conn.close()
@@ -568,6 +606,8 @@ def update_role(role_id):
         c.execute('DELETE FROM role_permissions WHERE role_id = ?', (role_id,))
         for perm_id in permissions:
             c.execute('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)', (role_id, perm_id))
+
+        sync_role_menus_from_permissions(c, role_id)
         
         conn.commit()
         conn.close()
