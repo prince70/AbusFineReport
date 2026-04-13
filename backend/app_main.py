@@ -14,7 +14,7 @@ from backend.services.assembly_service import (
     query_assembly_data,
     query_workshops,
 )
-from backend.services.checklist_service import query_checklist_data
+from backend.services.checklist_service import query_checklist_data, query_finished_qty_all
 
 app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get('SECRET_KEY', 'production-query-secret-key-2024')
@@ -64,7 +64,7 @@ def get_menu_paths_for_permission_codes(permission_codes):
     paths = {'/dashboard'}
     permission_to_paths = {
         'assembly:query': ['/assembly'],
-        'checklist:query': ['/list'],
+        'checklist:query': ['/list', '/list/grinding', '/list/key', '/list/body', '/list/beam', '/list/core'],
         'user:view': ['/system/users'],
         'role:view': ['/system/roles'],
     }
@@ -250,18 +250,51 @@ def init_db():
     for row in c.fetchall():
         sync_role_menus_from_permissions(c, row[0])
 
-    # Ensure the checklist/report menu exists (外协加工清单 -> /list)
+    # Ensure the checklist parent menu and workshop sub-menus exist.
     c.execute("SELECT id FROM menus WHERE path = '/list'")
-    existing = c.fetchone()
-    if not existing:
-        # insert as a root menu item
-        c.execute("INSERT INTO menus (name, path, icon, parent_id, order_num) VALUES (?, ?, ?, ?, ?)",
-                  ('外协加工清单', '/list', 'el-icon-document', None, 4))
-        c.execute("SELECT id FROM menus WHERE path = '/list'")
-        new_menu_id = c.fetchone()[0]
-        # grant menu to admin and normal user roles
-        c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (1, new_menu_id))
-        c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (2, new_menu_id))
+    parent = c.fetchone()
+    if not parent:
+        c.execute(
+            "INSERT INTO menus (name, path, icon, parent_id, order_num) VALUES (?, ?, ?, ?, ?)",
+            ('外协加工清单', '/list', 'el-icon-document', None, 4)
+        )
+        checklist_parent_id = c.lastrowid
+    else:
+        checklist_parent_id = parent[0]
+        c.execute(
+            "UPDATE menus SET name = ?, icon = ?, parent_id = ?, order_num = ? WHERE id = ?",
+            ('外协加工清单', 'el-icon-document', None, 4, checklist_parent_id)
+        )
+
+    workshop_menus = [
+        ('打磨车间', '/list/grinding', 1),
+        ('钥匙车间', '/list/key', 2),
+        ('锁体车间', '/list/body', 3),
+        ('锁梁车间', '/list/beam', 4),
+        ('锁芯车间', '/list/core', 5),
+    ]
+
+    for name, path, order_num in workshop_menus:
+        c.execute("SELECT id FROM menus WHERE path = ?", (path,))
+        row = c.fetchone()
+        if not row:
+            c.execute(
+                "INSERT INTO menus (name, path, icon, parent_id, order_num) VALUES (?, ?, ?, ?, ?)",
+                (name, path, 'el-icon-document', checklist_parent_id, order_num)
+            )
+            menu_id = c.lastrowid
+        else:
+            menu_id = row[0]
+            c.execute(
+                "UPDATE menus SET name = ?, icon = ?, parent_id = ?, order_num = ? WHERE id = ?",
+                (name, 'el-icon-document', checklist_parent_id, order_num, menu_id)
+            )
+
+        c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (1, menu_id))
+        c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (2, menu_id))
+
+    c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (1, checklist_parent_id))
+    c.execute('INSERT OR IGNORE INTO role_menus (role_id, menu_id) VALUES (?, ?)', (2, checklist_parent_id))
 
     c.execute('SELECT id FROM roles')
     for row in c.fetchall():
@@ -688,6 +721,22 @@ def query_checklist():
 
     try:
         data = query_checklist_data(request.args, get_sqlserver_connection)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'data': data, 'total': len(data)})
+
+
+@app.route('/api/checklist/finished-qty-all', methods=['GET'])
+def query_finished_qty_all_api():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    user_permissions = get_user_permissions(session['user_id'])
+    if 'checklist:query' not in user_permissions and 'assembly:query' not in user_permissions:
+        return jsonify({'status': 'error', 'message': 'No permission'}), 403
+
+    try:
+        data = query_finished_qty_all(request.args, get_sqlserver_connection)
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 

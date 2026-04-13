@@ -36,7 +36,7 @@
         <div class="title">装嵌生产进度查询结果</div>
         <div class="meta">总数据条数：<strong>{{ totalCount }}</strong>，当前页：<strong>{{ currentPage }}</strong>/{{ totalPages }}</div>
       </div>
-      <el-table :data="paginatedData" v-loading="loading" border stripe max-height="600" show-summary :summary-method="getSummaries">
+      <el-table ref="assemblyTable" :data="paginatedData" v-loading="loading" border stripe max-height="600" show-summary :summary-method="getSummaries" highlight-current-row @row-click="handleRowClick">
         <el-table-column type="index" label="序号" width="60" align="center" :index="indexMethod" />
         <el-table-column prop="客户" label="客户" width="140" align="center" />
         <el-table-column prop="订单批号" label="订单批号" width="170" align="center" />
@@ -52,6 +52,11 @@
         <el-table-column prop="最晚完成日期" label="最晚完成日期" width="120" align="center"><template slot-scope="scope">{{ formatDate(scope.row.最晚完成日期) }}</template></el-table-column>
         <el-table-column prop="进度状态" label="进度状态" width="100" align="center"><template slot-scope="scope"><el-tag :type="getStatusType(scope.row.进度状态)" size="small">{{ scope.row.进度状态 }}</el-tag></template></el-table-column>
         <el-table-column prop="备注" label="备注" min-width="180" />
+        <el-table-column label="操作" width="140" align="center" fixed="right">
+          <template slot-scope="scope">
+            <el-button size="mini" type="warning" @click="handleViewAllFinishedQty(scope.row)">查看全部报工数据</el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <div class="overall-summary-row">
         <span class="label">全部数据合计：</span>
@@ -63,6 +68,45 @@
         <el-pagination @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="currentPage" :page-size="pageSize" :page-sizes="[50,100,200,2000,5000]" layout="total, sizes, prev, pager, next, jumper" :total="tableData.length" background />
       </div>
     </el-card>
+
+    <el-dialog
+      title="全部报工数据"
+      :visible.sync="finishedQtyDialogVisible"
+      width="98%"
+      top="1vh"
+      append-to-body
+      destroy-on-close
+      custom-class="finished-qty-dialog"
+    >
+      <div v-loading="finishedQtyLoading" style="min-height: 120px;">
+        <div style="margin-bottom: 12px; color: #606266;">
+          订单批号：<strong>{{ finishedQtyOrderNumber || '-' }}</strong>，
+          记录数：<strong>{{ finishedQtyData.length }}</strong>
+        </div>
+        <div class="finished-qty-table-wrap">
+          <el-table
+            :data="finishedQtyData"
+            border
+            stripe
+            empty-text="暂无数据"
+            style="width: 100%"
+          >
+            <el-table-column
+              v-for="column in finishedQtyColumns"
+              :key="column"
+              :prop="column"
+              :label="column"
+              min-width="140"
+              show-overflow-tooltip
+            >
+              <template slot-scope="scope">
+                {{ formatRawValue(scope.row[column]) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+    </el-dialog>
   </app-layout>
 </template>
 
@@ -82,7 +126,11 @@ export default {
       totalCount: 0,
       loading: false,
       currentPage: 1,
-      pageSize: 50
+      pageSize: 50,
+      finishedQtyDialogVisible: false,
+      finishedQtyLoading: false,
+      finishedQtyData: [],
+      finishedQtyOrderNumber: ''
     }
   },
   computed: {
@@ -99,6 +147,10 @@ export default {
         完成数量: this.sumField(this.tableData, '完成数量'),
         未完成数量: this.sumField(this.tableData, '未完成数量')
       }
+    },
+    finishedQtyColumns() {
+      if (!this.finishedQtyData.length) return []
+      return Object.keys(this.finishedQtyData[0])
     }
   },
   mounted() {
@@ -139,6 +191,45 @@ export default {
     handleReset() {
       this.searchForm = { 区域: '', 订单批号: '', 客户: '', 料品编码: '', 料品名称: '', 开始日期: '', 结束日期: '', 进度状态: [] }
       this.handleSearch()
+    },
+    formatRawValue(value) {
+      if (value === null || value === undefined) return ''
+      if (value instanceof Date) {
+        const y = value.getFullYear()
+        const m = String(value.getMonth() + 1).padStart(2, '0')
+        const d = String(value.getDate()).padStart(2, '0')
+        const hh = String(value.getHours()).padStart(2, '0')
+        const mm = String(value.getMinutes()).padStart(2, '0')
+        const ss = String(value.getSeconds()).padStart(2, '0')
+        return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
+      }
+      return String(value)
+    },
+    async handleViewAllFinishedQty(row) {
+      const orderNumber = row && (row.订单批号 || row.订单号 || '')
+      if (!orderNumber) {
+        this.$message.warning('没有可用的订单批号')
+        return
+      }
+
+      this.finishedQtyLoading = true
+      try {
+        const res = await axios.get('/api/checklist/finished-qty-all', {
+          params: { OrderNumber: orderNumber }
+        })
+        if (res.data && res.data.status === 'success') {
+          this.finishedQtyOrderNumber = orderNumber
+          this.finishedQtyData = this.sortFinishedQtyRows(res.data.data || [])
+          this.finishedQtyDialogVisible = true
+        } else {
+          this.$message.error((res.data && res.data.message) || '查询失败')
+        }
+      } catch (error) {
+        const msg = error && error.response && error.response.data && error.response.data.message
+        this.$message.error(msg || '查询失败，请查看后端日志')
+      } finally {
+        this.finishedQtyLoading = false
+      }
     },
     async handleExport() {
       try {
@@ -181,6 +272,31 @@ export default {
       this.pageSize = val
       this.currentPage = 1
     },
+    sortFinishedQtyRows(rows) {
+      const timeKeys = ['FinishedDate', 'finished_date', '完成时间', '报工时间', '时间', 'CreateDate', 'CreatedAt', 'CreateTime', 'UpdateTime', '修改时间', '录入时间']
+      const parseTime = (value) => {
+        if (value === null || value === undefined || value === '') return 0
+        if (value instanceof Date) return value.getTime()
+        const date = new Date(value)
+        if (!Number.isNaN(date.getTime())) return date.getTime()
+        const text = String(value).trim()
+        if (!text) return 0
+        const normalized = text.replace(/\//g, '-')
+        const fallback = new Date(normalized)
+        return Number.isNaN(fallback.getTime()) ? 0 : fallback.getTime()
+      }
+
+      const getRowTime = (row) => {
+        for (const key of timeKeys) {
+          if (row && row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+            return parseTime(row[key])
+          }
+        }
+        return 0
+      }
+
+      return [...rows].sort((left, right) => getRowTime(right) - getRowTime(left))
+    },
     indexMethod(index) {
       return (this.currentPage - 1) * this.pageSize + index + 1
     },
@@ -218,3 +334,23 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.finished-qty-table-wrap {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.finished-qty-dialog ::v-deep .el-dialog {
+  margin: 0 auto !important;
+  height: 96vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.finished-qty-dialog ::v-deep .el-dialog__body {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px 20px 20px;
+}
+</style>

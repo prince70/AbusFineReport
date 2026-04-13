@@ -1,5 +1,5 @@
 <template>
-  <app-layout title="外协加工清单" :breadcrumb="['报表', '外协加工清单']">
+  <app-layout :title="pageTitle" :breadcrumb="pageBreadcrumb">
     <div v-if="loading" class="global-loading-mask">
       <i class="el-icon-loading"></i>
       <span>查询中...</span>
@@ -40,7 +40,7 @@
     <el-card style="margin-top:12px;">
       <div class="sheet-title-block">
         <div class="sheet-company">万晖五金（深圳）有限公司</div>
-        <div class="sheet-title">外协加工清单</div>
+        <div class="sheet-title">{{ pageTitle }}</div>
       </div>
 
       <div class="sheet-doc-head">
@@ -84,7 +84,7 @@
           净重 <strong>{{ overallSummary.净重 }}</strong>，
           盆数 <strong>{{ overallSummary.盆数 }}</strong>
         </div>
-        <div>来源：SQL Server / dbo.昨日打磨数据_外协</div>
+        <div>来源：SQL Server / dbo.{{ sourceTable }}</div>
       </div>
 
       <div class="sheet-footer-note">
@@ -114,6 +114,21 @@ export default {
     }
   },
   computed: {
+    workshopCode() {
+      return (this.$route.meta && this.$route.meta.workshop) || 'grinding'
+    },
+    workshopLabel() {
+      return (this.$route.meta && this.$route.meta.workshopLabel) || '打磨车间'
+    },
+    sourceTable() {
+      return (this.$route.meta && this.$route.meta.sourceTable) || '昨日打磨数据_外协'
+    },
+    pageTitle() {
+      return `外协加工清单 - ${this.workshopLabel}`
+    },
+    pageBreadcrumb() {
+      return ['报表', '外协加工清单', this.workshopLabel]
+    },
     displayDate() {
       const value = this.searchForm.结束日期 || this.searchForm.开始日期
       if (!value) return ''
@@ -153,7 +168,7 @@ export default {
         净重: formatNum(sum('净重')),
         盆数: formatNum(sum('盆数'))
       }
-    }
+    },
   },
   methods: {
     formatCell(value, prop, row) {
@@ -207,7 +222,7 @@ export default {
     },
     async handleSearch() {
       this.loading = true
-      const params = {}
+      const params = { 车间类型: this.workshopCode }
       Object.keys(this.searchForm).forEach(k => {
         const raw = this.searchForm[k]
         if (raw === null || raw === undefined) return
@@ -387,6 +402,11 @@ export default {
   },
   mounted() {
     this.handleSearch()
+  },
+  watch: {
+    '$route.path'() {
+      this.handleSearch()
+    }
   }
 }
 </script>
