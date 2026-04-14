@@ -720,10 +720,21 @@ def query_checklist():
         return jsonify({'status': 'error', 'message': 'No permission'}), 403
 
     try:
-        data = query_checklist_data(request.args, get_sqlserver_connection)
+        result = query_checklist_data(request.args, get_sqlserver_connection)
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+    if isinstance(result, dict):
+        data = result.get('data', [])
+        return jsonify({
+            'status': 'success',
+            'data': data,
+            'total': result.get('total', len(data)),
+            'columns': result.get('columns', []),
+            'raw_columns': bool(result.get('raw_columns')),
+        })
+
+    data = result
     return jsonify({'status': 'success', 'data': data, 'total': len(data)})
 
 

@@ -71,14 +71,22 @@ body {
 
 .layout {
   min-height: 100vh;
+  height: 100vh;
   display: flex;
+  overflow: hidden;
 }
 
 .sidebar {
   width: 228px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
   background: var(--sidebar-grad);
   color: #fff;
   box-shadow: 3px 0 12px rgba(16, 43, 78, 0.2);
+  overflow-y: auto;
+  z-index: 1000;
 }
 
 .logo {
@@ -140,6 +148,9 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  margin-left: 228px;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .topbar {
@@ -150,6 +161,9 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0 22px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .topbar-title {
@@ -429,8 +443,21 @@ body {
 }
 
 @media (max-width: 960px) {
-  .layout { flex-direction: column; }
-  .sidebar { width: 100%; }
+  .layout {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  .sidebar {
+    width: 100%;
+    position: static;
+    overflow: visible;
+  }
+  .main {
+    margin-left: 0;
+    height: auto;
+    overflow: visible;
+  }
   .dashboard-grid { grid-template-columns: 1fr; }
   .topbar { padding: 0 12px; }
   .content { padding: 10px; }
