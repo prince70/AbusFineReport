@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Service = "web",
     [int]$Port = 8001,
     [switch]$NoBuild,
@@ -7,10 +7,6 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-
-# 设置编码以支持中文输出
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-[System.Console]::InputEncoding = [System.Text.Encoding]::UTF8
 
 function Write-Step {
     param([string]$Message)
@@ -30,12 +26,6 @@ function Write-WarnText {
 Write-Step "检查 Docker 环境"
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw "未检测到 docker 命令，请先安装 Docker Desktop 并确保命令可用。"
-}
-
-try {
-    docker info | Out-Null
-} catch {
-    throw "Docker Desktop 未运行，请启动 Docker Desktop。"
 }
 
 docker version | Out-Null
@@ -102,17 +92,6 @@ try {
         Write-Info "探活成功: $probeUrl -> $($response.StatusCode)"
     } catch {
         Write-WarnText "探活失败: $probeUrl"
-        if ($composeSubCommand -eq "compose") {
-            Write-WarnText "可执行以下命令查看日志：docker compose logs --tail=120 $Service"
-        } else {
-            Write-WarnText "可执行以下命令查看日志：docker-compose logs --tail=120 $Service"
-        }
-    }
-
-    Write-Info "Docker 服务已启动。访问地址: http://127.0.0.1:$Port/"
-} finally {
-    Pop-Location
-}
         if ($composeSubCommand -eq "compose") {
             Write-WarnText "可执行以下命令查看日志：docker compose logs --tail=120 $Service"
         } else {
