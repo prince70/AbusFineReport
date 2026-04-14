@@ -8,10 +8,6 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# 设置编码以支持中文输出
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-[System.Console]::InputEncoding = [System.Text.Encoding]::UTF8
-
 function Write-Step {
     param([string]$Message)
     Write-Host "[STEP] $Message" -ForegroundColor Cyan
@@ -27,20 +23,20 @@ function Write-WarnText {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
-Write-Step "检查 Docker 环境"
+Write-Step "Check Docker environment"
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    throw "未检测到 docker 命令，请先安装 Docker Desktop 并确保命令可用。"
+    throw "Docker command not found. Install Docker Desktop and ensure it is available."
 }
 
 try {
     docker info | Out-Null
 } catch {
-    throw "Docker Desktop 未运行，请启动 Docker Desktop。"
+    throw "Docker Desktop is not running. Start Docker Desktop."
 }
 
 docker version | Out-Null
 
-Write-Step "检查 Compose 可用性"
+Write-Step "Check Compose availability"
 $composeSubCommand = $null
 try {
     docker compose version | Out-Null
@@ -49,7 +45,7 @@ try {
     if (Get-Command docker-compose -ErrorAction SilentlyContinue) {
         $composeSubCommand = "docker-compose"
     } else {
-        throw "未检测到 docker compose 或 docker-compose。"
+        throw "docker compose or docker-compose is not available."
     }
 }
 
@@ -57,24 +53,24 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $projectRoot
 try {
     if (-not $SkipFrontendBuild) {
-        Write-Step "构建前端静态资源"
+        Write-Step "Build frontend assets"
         $packageJsonPath = Join-Path $projectRoot "package.json"
         if (-not (Test-Path $packageJsonPath)) {
-            throw "未找到 package.json，无法自动构建前端。"
+            throw "package.json not found; cannot build frontend."
         }
         if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-            throw "未检测到 npm 命令，请先安装 Node.js，或使用 -SkipFrontendBuild 跳过前端构建。"
+            throw "npm not found. Install Node.js or use -SkipFrontendBuild."
         }
         npm run build
     } else {
-        Write-Step "跳过前端构建"
+        Write-Step "Skip frontend build"
     }
 
     $shouldBuild = -not $NoBuild
     if ($shouldBuild) {
-        Write-Step "启动容器服务（自动重新构建镜像）"
+        Write-Step "Starting service with rebuild"
     } else {
-        Write-Step "启动容器服务（跳过重新构建）"
+        Write-Step "Starting service without rebuild"
     }
 
     if ($composeSubCommand -eq "compose") {
@@ -83,7 +79,7 @@ try {
         } else {
             docker compose up -d $Service
         }
-        Write-Step "查看运行状态"
+        Write-Step "Inspecting service status"
         docker compose ps
     } else {
         if ($shouldBuild) {
@@ -91,37 +87,25 @@ try {
         } else {
             docker-compose up -d $Service
         }
-        Write-Step "查看运行状态"
+        Write-Step "Inspecting service status"
         docker-compose ps
     }
 
-    Write-Step "执行本地探活"
+    Write-Step "Probe service health"
     $probeUrl = "http://127.0.0.1:$Port/"
     try {
         $response = Invoke-WebRequest -Uri $probeUrl -UseBasicParsing -TimeoutSec 8
-        Write-Info "探活成功: $probeUrl -> $($response.StatusCode)"
+        Write-Info "Probe success: $probeUrl -> $($response.StatusCode)"
     } catch {
-        Write-WarnText "探活失败: $probeUrl"
+        Write-WarnText "Probe failed: $probeUrl"
         if ($composeSubCommand -eq "compose") {
-            Write-WarnText "可执行以下命令查看日志：docker compose logs --tail=120 $Service"
+            Write-WarnText "Run: docker compose logs --tail=120 $Service"
         } else {
-            Write-WarnText "可执行以下命令查看日志：docker-compose logs --tail=120 $Service"
+            Write-WarnText "Run: docker-compose logs --tail=120 $Service"
         }
     }
 
-    Write-Info "Docker 服务已启动。访问地址: http://127.0.0.1:$Port/"
-} finally {
-    Pop-Location
-}
-        if ($composeSubCommand -eq "compose") {
-            Write-WarnText "可执行以下命令查看日志：docker compose logs --tail=120 $Service"
-        } else {
-            Write-WarnText "可执行以下命令查看日志：docker-compose logs --tail=120 $Service"
-        }
-    }
-
-    Write-Host ""
-    Write-Info "Docker 服务已启动。访问地址: $probeUrl"
+    Write-Info "Docker service started at: $probeUrl"
 } finally {
     Pop-Location
 }
