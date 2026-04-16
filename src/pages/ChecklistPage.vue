@@ -122,6 +122,9 @@ export default {
     }
   },
   computed: {
+    isKeyTemplateMode() {
+      return this.workshopCode === 'key'
+    },
     isBodyTemplateMode() {
       return this.workshopCode === 'body'
     },
@@ -129,7 +132,7 @@ export default {
       return this.workshopCode === 'core'
     },
     isRawSqlMode() {
-      return this.workshopCode === 'key' || this.workshopCode === 'beam'
+      return this.workshopCode === 'beam'
     },
     workshopCode() {
       return (this.$route.meta && this.$route.meta.workshop) || 'grinding'
@@ -154,6 +157,21 @@ export default {
       return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
     },
     tableColumns() {
+      if (this.isKeyTemplateMode) {
+        return [
+          { prop: '订单号', label: '订单号', width: 160 },
+          { prop: '外协件名称', label: '外协件名称', width: 120 },
+          { prop: '型号规格', label: '型号/规格', minWidth: 200, align: 'left' },
+          { prop: '数量', label: '数量', width: 95, align: 'right' },
+          { prop: '单位', label: '单位', width: 70 },
+          { prop: '备注', label: '备注', width: 90, align: 'right' },
+          { prop: '外协项目', label: '外协项目', width: 120, align: 'left' },
+          { prop: '品质要求', label: '品质要求', width: 170, align: 'left' },
+          { prop: '交货期限', label: '交货期限', width: 100 },
+          { prop: '料品编码', label: '料品编码', width: 130 },
+          { prop: '订单落货期', label: '订单落货期', width: 110 }
+        ]
+      }
       if (this.isCoreTemplateMode) {
         return [
           { prop: '订单号', label: '订单号', width: 130 },
@@ -255,6 +273,19 @@ export default {
       return ['qty', 'count', 'num', 'weight', '重量', '数量', '毛重', '净重', '盆数', '单重'].some(token => lowered.includes(token))
     },
     formatCell(value, prop, row) {
+      if (this.isKeyTemplateMode) {
+        if (['交货期限', '订单落货期'].includes(prop)) {
+          return this.formatMonthDay(value)
+        }
+        if (['数量', '备注'].includes(prop)) {
+          const num = Number(value)
+          if (!Number.isFinite(num)) return ''
+          if (Math.abs(num - Math.round(num)) < 1e-9) return String(Math.round(num))
+          return num.toFixed(2)
+        }
+        if (value === null || value === undefined) return ''
+        return String(value)
+      }
       if (this.isCoreTemplateMode) {
         if (['交货期限', '上线日期', '落货日期'].includes(prop)) {
           return this.formatMonthDay(value)
@@ -311,6 +342,9 @@ export default {
       return String(value)
     },
     resolveCellValue(row, column) {
+      if (this.isKeyTemplateMode) {
+        return this.formatCell(row[column.prop], column.prop, row)
+      }
       if (this.isCoreTemplateMode) {
         return this.formatCell(row[column.prop], column.prop, row)
       }
@@ -376,7 +410,9 @@ export default {
         const res = await axios.get('/api/checklist/query', { params })
         if (res.data && res.data.status === 'success') {
           const rawData = res.data.data || []
-          if (this.isCoreTemplateMode) {
+          if (this.isKeyTemplateMode) {
+            this.tableData = rawData.map(row => this.normalizeKeyRow(row))
+          } else if (this.isCoreTemplateMode) {
             this.tableData = rawData.map(row => this.normalizeCoreRow(row))
           } else if (this.isBodyTemplateMode) {
             this.tableData = rawData.map(row => this.normalizeBodyRow(row))
@@ -504,6 +540,7 @@ export default {
       }
     },
     objectSpanMethod({ row, columnIndex, rowIndex }) {
+      if (this.isKeyTemplateMode) return
       if (this.isCoreTemplateMode) return
       if (this.isBodyTemplateMode) return
       if (this.isRawSqlMode) return
@@ -586,6 +623,21 @@ export default {
         换算: netWeight,
         型号规格原料厂家: `${spec} ${vendor}`.trim(),
         料品编码: this.pickValue(row, ['ItemExternalId', '料品编码'])
+      }
+    },
+    normalizeKeyRow(row) {
+      return {
+        订单号: this.pickValue(row, ['OrderNumber', '订单号']),
+        外协件名称: this.pickValue(row, ['半成品名称', '外协件名称']),
+        型号规格: this.pickValue(row, ['半成品规格', '规格型号']),
+        数量: Number(this.pickValue(row, ['EachFinishedQty', '数量', '订单数量'])) || 0,
+        单位: 'KG',
+        备注: this.pickValue(row, ['pot', '盆数', '备注']) || 0,
+        外协项目: this.pickValue(row, ['外协项目1', '外协项目']),
+        品质要求: this.pickValue(row, ['品质要求1', '品质要求']),
+        交货期限: this.pickValue(row, ['FinishedDate', '交货期限']),
+        料品编码: this.pickValue(row, ['ItemExternalId', '料品编码']),
+        订单落货期: this.pickValue(row, ['确定交期', '订单整货期'])
       }
     },
     normalizeCoreRow(row) {

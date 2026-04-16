@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 
 set "SCRIPT_DIR=%~dp0"
-set "PROJECT_ROOT=%SCRIPT_DIR%"
+for %%I in ("%SCRIPT_DIR%..") do set "PROJECT_ROOT=%%~fI"
 
 echo [STEP] Move to project root
 cd /d "%PROJECT_ROOT%" || (
@@ -45,7 +45,7 @@ git pull --ff-only origin %CURRENT_BRANCH% || (
 )
 
 echo [STEP] Build and restart Docker service
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\start_docker.ps1" -Service web -Port 8001 || (
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%start_docker.ps1" -Service web -Port 8001 || (
   echo [ERROR] Docker deploy failed.
   exit /b 1
 )
