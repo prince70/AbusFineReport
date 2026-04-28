@@ -174,17 +174,17 @@ export default {
       }
       if (this.isCoreTemplateMode) {
         return [
-          { prop: '订单号', label: '订单号', width: 130 },
+          { prop: '订单号', label: '订单号', width: 200 },
           { prop: '外协件名称', label: '外协件名称', width: 120 },
-          { prop: '型号规格', label: '型号/规格', minWidth: 180, align: 'left' },
+          { prop: '型号规格', label: '型号/规格', minWidth: 100, align: 'left' },
           { prop: '原料厂家', label: '原料厂家', width: 100 },
           { prop: '数量', label: '数量', width: 90, align: 'right' },
           { prop: '单位', label: '单位', width: 70 },
-          { prop: '备注', label: '备注', width: 100, align: 'right' },
+          { prop: '备注', label: '备注', width: 140, align: 'right' },
           { prop: '外协项目', label: '外协项目', width: 120, align: 'left' },
           { prop: '品质要求', label: '品质要求', width: 170, align: 'left' },
-          { prop: '交货期限', label: '交货期限', width: 100 },
-          { prop: '上线日期', label: '上线日期', width: 100 },
+          { prop: '交货期限', label: '交货期限', width: 130 },
+          { prop: '料品编码', label: '料品编码', width: 150 },
           { prop: '落货日期', label: '落货日期', width: 100 },
           { prop: '合计件', label: '合计：件', width: 90, align: 'right' },
           { prop: '净重', label: '净重', width: 90, align: 'right' },
@@ -203,7 +203,7 @@ export default {
           { prop: '外协项目', label: '外协项目', width: 110, align: 'left' },
           { prop: '品质要求', label: '品质要求', width: 160, align: 'left' },
           { prop: '交货期限', label: '交货期限', width: 110 },
-          { prop: '上线日期', label: '上线日期', width: 100 },
+          { prop: '料品编码', label: '料品编码', width: 100 },
           { prop: '订单整货期', label: '订单落货期', width: 110 },
           { prop: '合计件', label: '合计-件', width: 90, align: 'right' },
           { prop: '净重', label: '净重', width: 85, align: 'right' },
@@ -234,7 +234,7 @@ export default {
         { prop: '外协项目', label: '外协项目', width: 120, align: 'left' },
         { prop: '品质要求', label: '品质要求', width: 220, align: 'left' },
         { prop: '交货期限', label: '交货期限', width: 110 },
-        { prop: '上线日期', label: '上线日期', width: 110 },
+        { prop: '料品编码', label: '料品编码', width: 110 },
         { prop: '订单整货期', label: '订单落货期', width: 110 },
         { prop: '责任车间', label: '责任车间', width: 110 },
         { prop: '毛重', label: '毛重', width: 90, align: 'right' },
@@ -287,10 +287,10 @@ export default {
         return String(value)
       }
       if (this.isCoreTemplateMode) {
-        if (['交货期限', '上线日期', '落货日期'].includes(prop)) {
+        if (['交货期限', '落货日期'].includes(prop)) {
           return this.formatMonthDay(value)
         }
-        if (['数量', '备注', '合计件', '净重', '毛重'].includes(prop)) {
+        if (['数量', '合计件', '净重', '毛重'].includes(prop)) {
           const num = Number(value)
           if (!Number.isFinite(num)) return ''
           if (Math.abs(num - Math.round(num)) < 1e-9) return String(Math.round(num))
@@ -300,7 +300,7 @@ export default {
         return String(value)
       }
       if (this.isBodyTemplateMode) {
-        if (['交货期限', '上线日期', '订单整货期'].includes(prop)) {
+        if (['交货期限', '料品编码', '订单整货期'].includes(prop)) {
           return this.formatMonthDay(value)
         }
         if (prop === '净重') {
@@ -413,7 +413,7 @@ export default {
           if (this.isKeyTemplateMode) {
             this.tableData = rawData.map(row => this.normalizeKeyRow(row))
           } else if (this.isCoreTemplateMode) {
-            this.tableData = rawData.map(row => this.normalizeCoreRow(row))
+            this.tableData = this.buildCoreGroupedRows(rawData.map(row => this.normalizeCoreRow(row)))
           } else if (this.isBodyTemplateMode) {
             this.tableData = rawData.map(row => this.normalizeBodyRow(row))
           } else {
@@ -459,7 +459,19 @@ export default {
         }
 
         const columns = this.tableColumns.map(c => c.label)
-        const data = this.tableData.map(r => this.tableColumns.map(c => this.resolveCellValue(r, c)))
+        const numericColumns = ['数量', '订单数量', '合计件', '净重', '毛重', '盆数', '单重', '换算', 'EachFinishedQty', 'FinishedQty']
+        const numericColIndexes = this.tableColumns
+          .map((c, idx) => numericColumns.includes(c.prop) ? idx : -1)
+          .filter(idx => idx >= 0)
+        
+        const data = this.tableData.map(r => this.tableColumns.map((c, cIdx) => {
+          const value = this.resolveCellValue(r, c)
+          if (numericColIndexes.includes(cIdx)) {
+            const num = Number(value)
+            return Number.isFinite(num) ? num : value
+          }
+          return value
+        }))
         const aoa = [titleRow, subTitleRow, blankRow, infoRow, columns].concat(data)
         const ws = XLSX.utils.aoa_to_sheet(aoa)
 
@@ -474,7 +486,7 @@ export default {
           merges.push({ s: { r: 3, c: 3 }, e: { r: 3, c: colCount - 1 } })
         }
 
-        const mergeTargetProps = ['备注', '毛重', '净重', '盆数']
+        const mergeTargetProps = ['备注', '合计件', '毛重', '净重', '盆数']
         const headerOffset = 5
         const getSpecKey = row => (row.规格型号分组 || row.规格型号 || '').toString()
 
@@ -541,7 +553,29 @@ export default {
     },
     objectSpanMethod({ row, columnIndex, rowIndex }) {
       if (this.isKeyTemplateMode) return
-      if (this.isCoreTemplateMode) return
+      if (this.isCoreTemplateMode) {
+        if (columnIndex < 1) return
+        const colIndex = columnIndex - 1
+        if (colIndex >= this.tableColumns.length) return
+        const colProp = this.tableColumns[colIndex].prop
+        const coreMergeColumns = ['备注', '合计件', '净重', '毛重']
+        if (!coreMergeColumns.includes(colProp)) return
+
+        const currentSpec = row.规格型号分组 || row.型号规格
+        if (rowIndex > 0) {
+          const prevRow = this.tableData[rowIndex - 1]
+          const prevSpec = prevRow ? (prevRow.规格型号分组 || prevRow.型号规格) : ''
+          if (prevSpec === currentSpec) return [0, 0]
+        }
+
+        let spanRow = 1
+        for (let i = rowIndex + 1; i < this.tableData.length; i++) {
+          const nextSpec = this.tableData[i].规格型号分组 || this.tableData[i].型号规格
+          if (nextSpec === currentSpec) spanRow++
+          else break
+        }
+        return [spanRow, 1]
+      }
       if (this.isBodyTemplateMode) return
       if (this.isRawSqlMode) return
       const mergeColumns = ['备注', '毛重', '净重', '盆数']
@@ -616,7 +650,7 @@ export default {
         外协项目: this.pickValue(row, ['外协项目1', '外协项目']),
         品质要求: this.pickValue(row, ['品质要求1', '品质要求']),
         交货期限: this.pickValue(row, ['FinishedDate', '交货期限']),
-        上线日期: '',
+        料品编码: '',
         订单整货期: this.pickValue(row, ['确定交期', '订单整货期']),
         合计件: quantity,
         净重: netWeight,
@@ -641,12 +675,11 @@ export default {
       }
     },
     normalizeCoreRow(row) {
-      const quantity = Number(this.pickValue(row, ['EachFinishedQty', '数量', '订单数量'])) || 0
+      const quantity = Number(this.pickValue(row, ['EachFinishedQty'])) || 0
       const unitWeight = Number(this.pickValue(row, ['物料单重_克', '单重_克'])) || 0
-      const netByUnitWeight = quantity * unitWeight
-      const netByKg = (Number(this.pickValue(row, ['EachFinishedQtykg'])) || 0) * 1000
-      const netWeight = Number((netByUnitWeight > 0 ? netByUnitWeight : netByKg).toFixed(2))
+      const netWeight = Number((quantity * unitWeight).toFixed(2))
       const grossWeight = Number(this.pickValue(row, ['盆的重量_千克', '毛重'])) || 0
+      const originalRemark = Number(this.pickValue(row, ['每盆重量或只数', '备注', '盆数'])) || 0
 
       return {
         订单号: this.pickValue(row, ['OrderNumber', '订单号']),
@@ -654,17 +687,61 @@ export default {
         型号规格: this.pickValue(row, ['半成品规格', '规格型号']),
         原料厂家: this.pickValue(row, ['原料厂家', '生产车间']),
         数量: quantity,
-        单位: this.pickValue(row, ['单位', 'unit']),
-        备注: this.pickValue(row, ['每盆重量或只数', '备注', '盆数']),
+        单位: this.pickValue(row, ['单位']),
+        备注: originalRemark,
+        原备注: originalRemark,
         外协项目: this.pickValue(row, ['外协项目1', '外协项目']),
         品质要求: this.pickValue(row, ['品质要求1', '品质要求']),
         交货期限: this.pickValue(row, ['FinishedDate', '交货期限']),
-        上线日期: this.pickValue(row, ['上线日期']),
+        料品编码: this.pickValue(row, ['ItemExternalId', '料品编码']),
         落货日期: this.pickValue(row, ['确定交期', '订单整货期', '落货日期']),
         合计件: quantity,
         净重: netWeight,
         毛重: grossWeight
       }
+    },
+    buildCoreGroupedRows(rows) {
+      const formatNum = (num) => {
+        const n = Number(num)
+        if (!Number.isFinite(n)) return '0'
+        if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n))
+        return String(Number(n.toFixed(2)))
+      }
+
+      const groups = new Map()
+      rows.forEach((row) => {
+        const spec = (row.型号规格 || '').toString().trim()
+        const key = spec || '未填写规格'
+        if (!groups.has(key)) groups.set(key, [])
+        groups.get(key).push(row)
+      })
+
+      const orderedKeys = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+      const result = []
+
+      orderedKeys.forEach((key) => {
+        const groupRows = groups.get(key)
+        const totalQty = groupRows.reduce((sum, item) => sum + (Number(item.数量) || 0), 0)
+        const totalNetWeight = Number(groupRows.reduce((sum, item) => sum + (Number(item.净重) || 0), 0).toFixed(2))
+        const totalGrossWeight = Number(groupRows.reduce((sum, item) => sum + (Number(item.毛重) || 0), 0).toFixed(2))
+        const unit = (groupRows[0].单位 || '').toString().toUpperCase()
+        const divisor = unit === 'KG' ? 25 : 342
+        const quotient = Math.floor(totalQty / divisor)
+        const tailValue = totalQty - quotient * divisor
+        const mergedRemarkExpr = `${quotient}*${divisor}+${formatNum(tailValue)}`
+        const totalPieces = quotient + 1
+
+        groupRows.forEach((item, index) => {
+          item.规格型号分组 = key
+          item.备注 = index === 0 ? mergedRemarkExpr : ''
+          item.合计件 = index === 0 ? totalPieces : ''
+          item.净重 = index === 0 ? totalNetWeight : ''
+          item.毛重 = index === 0 ? totalGrossWeight : ''
+          result.push(item)
+        })
+      })
+
+      return result
     }
   },
   mounted() {

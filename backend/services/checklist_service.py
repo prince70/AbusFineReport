@@ -227,7 +227,7 @@ def _post_process_rows(data):
         item['规格型号分组'] = key
         qty = int(item.get('订单数量') or 0)
         unit = float(item.get('单重_克') or 0)
-        pack = float(item.get('每盆重量或只数') or 0)
+        pack = float(item.get('每盆重量或只数') or item.get('每盆只数') or 0)
         remark_value = _to_float(item.get('备注原始'))
         group_qty[key] += qty
         if unit > group_unit[key]:
@@ -261,6 +261,7 @@ def _post_process_rows(data):
             item['备注'] = ''
         item.pop('备注原始', None)
         item.pop('每盆重量或只数', None)
+        item.pop('每盆只数', None)
         item.pop('单重_克', None)
 
     data.sort(key=lambda x: (
@@ -377,70 +378,6 @@ def _query_workshop_shift_data(args, get_sqlserver_connection, table_name, mode)
     start_date = _parse_date_only(clean_arg(args, '开始日期'), today)
     end_date = _parse_date_only(clean_arg(args, '结束日期'), start_date)
 
-    start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.min.time())
-
-    if mode == 'key' and not has_date_filter:
-        cte_sql = f'''
-            WITH source_rows AS (
-                SELECT *
-                FROM department2020.dbo.[{table_name}]
-            )
-        '''
-        params = []
-    elif mode == 'key':
-        window_start = start_dt + timedelta(hours=8)
-        window_end = end_dt + timedelta(hours=8)
-        urgent_start = window_end
-        urgent_end = datetime.combine(end_date + timedelta(days=1), datetime.min.time()) - timedelta(seconds=1)
-
-        cte_sql = f'''
-            WITH source_rows AS (
-                SELECT *
-                FROM department2020.dbo.[{table_name}]
-                WHERE (urgent <> 1 OR urgent IS NULL)
-                  AND FinishedDate >= ?
-                  AND FinishedDate < ?
-                UNION ALL
-                SELECT *
-                FROM department2020.dbo.[{table_name}]
-                WHERE urgent = 1
-                  AND FinishedDate >= ?
-                  AND FinishedDate <= ?
-            )
-        '''
-        params = [window_start, window_end, urgent_start, urgent_end]
-    elif mode == 'body' and not has_date_filter:
-        cte_sql = f'''
-            WITH source_rows AS (
-                SELECT *
-                FROM department2020.dbo.[{table_name}]
-                WHERE 1=1
-            )
-        '''
-        params = []
-    else:
-        start_dt = _parse_datetime(clean_arg(args, '开始日期'), datetime.combine(start_date, datetime.min.time()))
-        end_dt = _parse_datetime(clean_arg(args, '结束日期'), datetime.combine(end_date, datetime.min.time()))
-        urgent_start = end_dt
-        urgent_end = end_dt + timedelta(days=1)
-        cte_sql = f'''
-            WITH source_rows AS (
-                SELECT *
-                FROM department2020.dbo.[{table_name}]
-                WHERE (urgent <> 1 OR urgent IS NULL)
-                  AND FinishedDate >= ?
-                  AND FinishedDate <= ?
-                UNION ALL
-                SELECT *
-                FROM department2020.dbo.[{table_name}]
-                WHERE urgent = 1
-                  AND FinishedDate >= ?
-                  AND FinishedDate <= ?
-            )
-        '''
-        params = [start_dt, end_dt, urgent_start, urgent_end]
-
     conn = get_sqlserver_connection()
     cursor = conn.cursor()
     try:
@@ -448,6 +385,108 @@ def _query_workshop_shift_data(args, get_sqlserver_connection, table_name, mode)
         display_columns = _get_table_columns_fallback(cursor, table_name)
         if 'OrderNumber' not in columns:
             return []
+
+        has_urgent_col = _col_exists(columns, 'urgent')
+        has_finished_date_col = _col_exists(columns, 'FinishedDate')
+        params = []
+
+        if mode == 'key' and not has_date_filter:
+            cte_sql = f'''
+                WITH source_rows AS (
+                    SELECT *
+                    FROM department2020.dbo.[{table_name}]
+                )
+            '''
+        elif mode == 'key':
+            start_dt = datetime.combine(start_date, datetime.min.time())
+            end_dt = datetime.combine(end_date, datetime.min.time())
+            window_start = start_dt + timedelta(hours=8)
+            window_end = end_dt + timedelta(hours=8)
+            urgent_start = window_end
+            urgent_end = datetime.combine(end_date + timedelta(days=1), datetime.min.time()) - timedelta(seconds=1)
+
+            if has_finished_date_col and has_urgent_col:
+                cte_sql = f'''
+                    WITH source_rows AS (
+                        SELECT *
+                        FROM department2020.dbo.[{table_name}]
+                        WHERE (urgent <> 1 OR urgent IS NULL)
+                          AND FinishedDate >= ?
+                          AND FinishedDate < ?
+                        UNION ALL
+                        SELECT *
+                        FROM department2020.dbo.[{table_name}]
+                        WHERE urgent = 1
+                          AND FinishedDate >= ?
+                          AND FinishedDate <= ?
+                    )
+                '''
+                params = [window_start, window_end, urgent_start, urgent_end]
+            elif has_finished_date_col:
+                cte_sql = f'''
+                    WITH source_rows AS (
+                        SELECT *
+                        FROM department2020.dbo.[{table_name}]
+                        WHERE FinishedDate >= ?
+                          AND FinishedDate <= ?
+                    )
+                '''
+                params = [window_start, urgent_end]
+            else:
+                cte_sql = f'''
+                    WITH source_rows AS (
+                        SELECT *
+                        FROM department2020.dbo.[{table_name}]
+                    )
+                '''
+        elif mode == 'body' and not has_date_filter:
+            cte_sql = f'''
+                WITH source_rows AS (
+                    SELECT *
+                    FROM department2020.dbo.[{table_name}]
+                    WHERE 1=1
+                )
+            '''
+        else:
+            start_dt = _parse_datetime(clean_arg(args, '开始日期'), datetime.combine(start_date, datetime.min.time()))
+            end_dt = _parse_datetime(clean_arg(args, '结束日期'), datetime.combine(end_date, datetime.min.time()))
+            urgent_start = end_dt
+            urgent_end = end_dt + timedelta(days=1)
+
+            if has_finished_date_col and has_urgent_col:
+                cte_sql = f'''
+                    WITH source_rows AS (
+                        SELECT *
+                        FROM department2020.dbo.[{table_name}]
+                        WHERE (urgent <> 1 OR urgent IS NULL)
+                          AND FinishedDate >= ?
+                          AND FinishedDate <= ?
+                        UNION ALL
+                        SELECT *
+                        FROM department2020.dbo.[{table_name}]
+                        WHERE urgent = 1
+                          AND FinishedDate >= ?
+                          AND FinishedDate <= ?
+                    )
+                '''
+                params = [start_dt, end_dt, urgent_start, urgent_end]
+            elif has_finished_date_col:
+                cte_sql = f'''
+                    WITH source_rows AS (
+                        SELECT *
+                        FROM department2020.dbo.[{table_name}]
+                        WHERE FinishedDate >= ?
+                          AND FinishedDate <= ?
+                    )
+                '''
+                params = [start_dt, end_dt]
+            else:
+                cte_sql = f'''
+                    WITH source_rows AS (
+                        SELECT *
+                        FROM department2020.dbo.[{table_name}]
+                    )
+                '''
 
         if mode in ('key', 'body'):
             query = cte_sql + '''
