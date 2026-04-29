@@ -25,7 +25,20 @@
           />
         </el-form-item>
         <el-form-item label="订单批号"><el-input v-model="searchForm.订单批号" placeholder="订单批号" /></el-form-item>
-        <el-form-item label="外协件名称"><el-input v-model="searchForm.外协件名称" placeholder="外协件名称" /></el-form-item>
+        <el-form-item label="外协件名称">
+          <el-select
+            v-model="searchForm.外协件名称"
+            placeholder="请选择外协件名称"
+            filterable
+            clearable
+            allow-create
+            default-first-option
+            :loading="nameOptionsLoading"
+            style="width: 200px"
+          >
+            <el-option v-for="name in nameOptions" :key="name" :label="name" :value="name" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="型号规格"><el-input v-model="searchForm.规格型号" placeholder="型号规格" /></el-form-item>
         <el-form-item label="区域"><el-input v-model="searchForm.区域" placeholder="区域" /></el-form-item>
         <el-form-item v-if="workshopCode === 'body'" label="生产车间">
@@ -38,6 +51,7 @@
         <el-form-item>
           <el-button type="primary" @click="handleSearch" :loading="loading">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
+          <el-button type="warning" @click="handleRefreshData" :loading="refreshing">更新数据</el-button>
           <el-button type="success" @click="handleExport" :disabled="!tableData.length">导出Excel</el-button>
           <el-button @click="handlePrint" :disabled="!tableData.length">打印</el-button>
         </el-form-item>
@@ -118,7 +132,19 @@ export default {
       tableData: [],
       backendColumns: [],
       totalCount: 0,
-      loading: false
+      loading: false,
+      refreshing: false,
+      nameOptions: [],
+      nameOptionsLoading: false
+    }
+  },
+  mounted() {
+    this.loadNameOptions()
+  },
+  watch: {
+    workshopCode() {
+      this.searchForm.外协件名称 = ''
+      this.loadNameOptions()
     }
   },
   computed: {
@@ -169,7 +195,9 @@ export default {
           { prop: '品质要求', label: '品质要求', width: 170, align: 'left' },
           { prop: '交货期限', label: '交货期限', width: 100 },
           { prop: '料品编码', label: '料品编码', width: 130 },
-          { prop: '订单落货期', label: '订单落货期', width: 110 }
+          { prop: '订单落货期', label: '订单落货期', width: 110 },
+          { prop: 'emp_name', label: '姓名', width: 100 },
+          { prop: 'ResName', label: '机台号', width: 100 }
         ]
       }
       if (this.isCoreTemplateMode) {
@@ -436,6 +464,41 @@ export default {
       this.backendColumns = []
       this.handleSearch()
     },
+    async loadNameOptions() {
+      this.nameOptionsLoading = true
+      try {
+        const res = await axios.get('/api/checklist/name-options', { params: { 车间类型: this.workshopCode } })
+        if (res.data && res.data.status === 'success') {
+          this.nameOptions = Array.isArray(res.data.data) ? res.data.data : []
+        } else {
+          this.nameOptions = []
+        }
+      } catch (err) {
+        this.nameOptions = []
+      } finally {
+        this.nameOptionsLoading = false
+      }
+    },
+    async handleRefreshData() {
+      this.refreshing = true
+      try {
+        const res = await axios.post('/api/checklist/refresh')
+        if (res.data && res.data.status === 'success') {
+          this.$message.success(res.data.message || '数据已更新')
+          this.loadNameOptions()
+          if (this.tableData.length || Object.values(this.searchForm).some(v => v !== '' && v !== false)) {
+            this.handleSearch()
+          }
+        } else {
+          this.$message.error((res.data && res.data.message) || '更新失败')
+        }
+      } catch (err) {
+        const msg = err && err.response && err.response.data && err.response.data.message
+        this.$message.error(msg || '更新失败，请查看后端日志')
+      } finally {
+        this.refreshing = false
+      }
+    },
     async handleExport() {
       if (!this.tableData.length) {
         this.$message.warning('暂无数据')
@@ -671,7 +734,9 @@ export default {
         品质要求: this.pickValue(row, ['品质要求1', '品质要求']),
         交货期限: this.pickValue(row, ['FinishedDate', '交货期限']),
         料品编码: this.pickValue(row, ['ItemExternalId', '料品编码']),
-        订单落货期: this.pickValue(row, ['确定交期', '订单整货期'])
+        订单落货期: this.pickValue(row, ['确定交期', '订单整货期']),
+        emp_name: this.pickValue(row, ['emp_name', '姓名']),
+        ResName: this.pickValue(row, ['ResName', '机台号'])
       }
     },
     normalizeCoreRow(row) {

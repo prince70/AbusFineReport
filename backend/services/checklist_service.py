@@ -488,7 +488,7 @@ def _query_workshop_shift_data(args, get_sqlserver_connection, table_name, mode)
                     )
                 '''
 
-        if mode in ('key', 'body'):
+        if mode == 'body':
             query = cte_sql + '''
             SELECT t.*
             FROM source_rows t
@@ -544,8 +544,13 @@ def _query_workshop_shift_data(args, get_sqlserver_connection, table_name, mode)
 
         if mode == 'key':
             query = cte_sql + '''
-            SELECT t.*
+            SELECT t.*, k.emp_name AS emp_name, k.ResName AS ResName
             FROM source_rows t
+            OUTER APPLY (
+                SELECT TOP 1 k1.emp_name, k1.ResName
+                FROM department2020.dbo.昨日钥匙数据 k1
+                WHERE k1.OrderNumber = t.OrderNumber
+            ) k
             WHERE 1=1
             '''
 
@@ -570,7 +575,7 @@ def _query_workshop_shift_data(args, get_sqlserver_connection, table_name, mode)
 
             cursor.execute(query, params)
             rows = cursor.fetchall()
-            row_columns = display_columns
+            row_columns = list(display_columns) + ['emp_name', 'ResName']
             data = [_rename_row_keys(dict(zip(row_columns, row))) for row in rows]
             return {
                 'data': data,
@@ -669,6 +674,54 @@ def query_checklist_data(args, get_sqlserver_connection):
     if config['mode'] == 'grinding':
         return _query_grinding_data(args, get_sqlserver_connection)
     return _query_workshop_shift_data(args, get_sqlserver_connection, config['table'], config['mode'])
+
+
+def query_name_options(args, get_sqlserver_connection):
+    """Return distinct 外协件名称 options for the given workshop."""
+    workshop = clean_arg(args, '车间类型') or clean_arg(args, 'workshop') or 'grinding'
+    workshop = workshop.lower()
+    config = WORKSHOP_MAP.get(workshop, WORKSHOP_MAP['grinding'])
+    table_name = config['table']
+
+    conn = get_sqlserver_connection()
+    cursor = conn.cursor()
+    try:
+        columns = _get_table_columns(cursor, table_name)
+        name_col = _first_existing_col(columns, ['半成品名称', '外协件名称', '品名', '物料名称', 'Name'])
+        if not name_col:
+            return []
+        safe = _safe_col(name_col)
+        cursor.execute(
+            f'''
+            SELECT DISTINCT LTRIM(RTRIM(CAST([{safe}] AS NVARCHAR(200)))) AS name
+            FROM department2020.dbo.[{table_name}]
+            WHERE [{safe}] IS NOT NULL
+              AND LTRIM(RTRIM(CAST([{safe}] AS NVARCHAR(200)))) <> ''
+            ORDER BY name
+            '''
+        )
+        return [row[0] for row in cursor.fetchall() if row[0]]
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def refresh_checklist_data(get_sqlserver_connection):
+    """Execute the 外协处理 stored procedure to refresh upstream data."""
+    conn = get_sqlserver_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('EXEC department2020.dbo.外协处理')
+        try:
+            while cursor.nextset():
+                pass
+        except Exception:
+            pass
+        conn.commit()
+        return True
+    finally:
+        cursor.close()
+        conn.close()
 
 
 def query_finished_qty_all(args, get_sqlserver_connection):

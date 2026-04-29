@@ -14,7 +14,12 @@ from backend.services.assembly_service import (
     query_assembly_data,
     query_workshops,
 )
-from backend.services.checklist_service import query_checklist_data, query_finished_qty_all
+from backend.services.checklist_service import (
+    query_checklist_data,
+    query_finished_qty_all,
+    query_name_options,
+    refresh_checklist_data,
+)
 
 app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get('SECRET_KEY', 'production-query-secret-key-2024')
@@ -736,6 +741,38 @@ def query_checklist():
 
     data = result
     return jsonify({'status': 'success', 'data': data, 'total': len(data)})
+
+
+@app.route('/api/checklist/name-options', methods=['GET'])
+def checklist_name_options():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    user_permissions = get_user_permissions(session['user_id'])
+    if 'checklist:query' not in user_permissions and 'assembly:query' not in user_permissions:
+        return jsonify({'status': 'error', 'message': 'No permission'}), 403
+
+    try:
+        names = query_name_options(request.args, get_sqlserver_connection)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'data': names, 'total': len(names)})
+
+
+@app.route('/api/checklist/refresh', methods=['POST'])
+def checklist_refresh():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    user_permissions = get_user_permissions(session['user_id'])
+    if 'checklist:query' not in user_permissions and 'assembly:query' not in user_permissions:
+        return jsonify({'status': 'error', 'message': 'No permission'}), 403
+
+    try:
+        refresh_checklist_data(get_sqlserver_connection)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({'status': 'success', 'message': '数据已更新'})
 
 
 @app.route('/api/checklist/finished-qty-all', methods=['GET'])
